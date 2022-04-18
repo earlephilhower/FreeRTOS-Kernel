@@ -229,6 +229,8 @@
 
     #define portMEMORY_BARRIER()    __asm volatile ( "" ::: "memory" )
 
+    extern volatile bool __otherCoreIdled;
+
     #ifdef __cplusplus
         }
     #endif

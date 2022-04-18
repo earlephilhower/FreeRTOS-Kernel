@@ -244,13 +244,24 @@ void vPortStartFirstTask( void )
 }
 /*-----------------------------------------------------------*/
 
-static void prvFIFOInterruptHandler()
+extern volatile bool __otherCoreIdled;
+
+static void __no_inline_not_in_flash_func(prvFIFOInterruptHandler)()
 {
-    /* We must remove the contents (which we don't care about)
-     * to clear the IRQ */
-    multicore_fifo_drain();
+    portDISABLE_INTERRUPTS();
+    bool ts = false;
+    while (multicore_fifo_rvalid()) {
+        if (0xC0DED02E == multicore_fifo_pop_blocking()) {
+            __otherCoreIdled = true;
+            while (__otherCoreIdled) { /* noop */ }
+        } else {
+            ts = true; /* Need a task switch */
+        }
+    }
     /* And explicitly clear any other IRQ flags */
     multicore_fifo_clear_irq();
+    /* If we only had a freeze request, don't switch */
+    if (!ts) return; 
     #if ( portRUNNING_ON_BOTH_CORES == 1 )
         portYIELD_FROM_ISR(pdTRUE);
     #elif ( configSUPPORT_PICO_SYNC_INTEROP == 1 )
