@@ -245,15 +245,18 @@ void vPortStartFirstTask( void )
 /*-----------------------------------------------------------*/
 
 extern volatile bool __otherCoreIdled;
+extern void interrupts();
+extern void noInterrupts();
 
 static void __no_inline_not_in_flash_func(prvFIFOInterruptHandler)()
 {
-    portDISABLE_INTERRUPTS();
     bool ts = false;
     while (multicore_fifo_rvalid()) {
         if (0xC0DED02E == multicore_fifo_pop_blocking()) {
+            noInterrupts();
             __otherCoreIdled = true;
             while (__otherCoreIdled) { /* noop */ }
+            interrupts();
         } else {
             ts = true; /* Need a task switch */
         }
