@@ -399,7 +399,7 @@ void vPortEnableInterrupts( void )
 
 void vYieldCore( int xCoreID )
 {
-    configASSERT(xCoreID != portGET_CORE_ID());
+    configASSERT(xCoreID != (int)portGET_CORE_ID());
     #if portRUNNING_ON_BOTH_CORES
         /* Non blocking, will cause interrupt on other core if the queue isn't already full,
         in which case an IRQ must be pending */

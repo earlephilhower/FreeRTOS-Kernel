@@ -384,6 +384,7 @@
     {
         BaseType_t xReturn = pdFAIL;
         DaemonTaskMessage_t xMessage;
+        (void) pxHigherPriorityTaskWoken;
 
         configASSERT( xTimer );
 
@@ -429,6 +430,7 @@
     {
         BaseType_t xReturn = pdFAIL;
         DaemonTaskMessage_t xMessage;
+        (void) xTicksToWait;
 
         configASSERT( xTimer );
 

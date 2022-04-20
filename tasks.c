@@ -693,13 +693,13 @@ static void prvYieldCore( BaseType_t xCoreID )
     /* This must be called from a critical section and
      * xCoreID must be valid. */
 
-    if( portCHECK_IF_IN_ISR() && ( xCoreID == portGET_CORE_ID() ) )
+    if( portCHECK_IF_IN_ISR() && ( xCoreID == (BaseType_t)portGET_CORE_ID() ) )
     {
         xYieldPendings[ xCoreID ] = pdTRUE;
     }
     else if( pxCurrentTCBs[ xCoreID ]->xTaskRunState != taskTASK_YIELDING )
     {
-        if( xCoreID == portGET_CORE_ID() )
+        if( xCoreID == (BaseType_t) portGET_CORE_ID() )
         {
             xYieldPendings[ xCoreID ] = pdTRUE;
         }
@@ -1683,7 +1683,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                 BaseType_t xCoreID;
 
                 /* Check if a core is free. */
-                for( xCoreID = ( UBaseType_t ) 0; xCoreID < ( UBaseType_t ) configNUM_CORES; xCoreID++ )
+                for( xCoreID = ( UBaseType_t ) 0; (UBaseType_t) xCoreID < ( UBaseType_t ) configNUM_CORES; xCoreID++ )
                 {
                     if( pxCurrentTCBs[ xCoreID ] == NULL )
                     {
@@ -2468,7 +2468,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
             {
                 if( xSchedulerRunning != pdFALSE )
                 {
-                    if( xTaskRunningOnCore == portGET_CORE_ID() )
+                    if( xTaskRunningOnCore == (TaskRunning_t)portGET_CORE_ID() )
                     {
                         /* The current task has just been suspended. */
                         configASSERT( uxSchedulerSuspended == 0 );
@@ -3718,7 +3718,7 @@ BaseType_t xTaskIncrementTick( void )
                         {
                             if( xCoreYieldList[ x ] != pdFALSE )
                             {
-                                if( x == xCoreID )
+                                if( (BaseType_t)x == xCoreID )
                                 {
                                     xSwitchRequired = pdTRUE;
                                 }
@@ -4295,6 +4295,7 @@ void vTaskMissedYield( void )
 #if ( configNUM_CORES > 1 )
     static portTASK_FUNCTION( prvMinimalIdleTask, pvParameters )
     {
+        (void) pvParameters;
         taskYIELD();
 
         for( ; ; )
