@@ -120,8 +120,8 @@ static void prvTaskExitError( void );
         #define pEventGroup (&xStaticEventGroup)
     #endif /* configSUPPORT_STATIC_ALLOCATION */
     static EventGroupHandle_t xEventGroup;
-    static EventBits_t uxCrossCoreEventBits;
-    static spin_lock_t * pxCrossCoreSpinLock;
+    //static EventBits_t uxCrossCoreEventBits;
+    //static spin_lock_t * pxCrossCoreSpinLock;
     static spin_lock_t * pxYieldSpinLock;
     static uint32_t ulYieldSpinLockSaveValue;
 #endif /* configSUPPORT_PICO_SYNC_INTEROP */
