@@ -247,7 +247,9 @@ void vPortStartFirstTask( void )
 extern volatile bool __otherCoreIdled;
 extern void interrupts();
 extern void noInterrupts();
-
+// TODO - this is required or we get odd crashes on startup.  Need to see what's going on under the hood
+#pragma GCC push_options
+#pragma GCC optimize("O2")
 static void __no_inline_not_in_flash_func(prvFIFOInterruptHandler)()
 {
     bool ts = false;
@@ -277,7 +279,7 @@ static void __no_inline_not_in_flash_func(prvFIFOInterruptHandler)()
         portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
     #endif /* portRUNNING_ON_BOTH_CORES */
 }
-
+#pragma GCC pop_options
 /*
  * See header file for description.
  */
