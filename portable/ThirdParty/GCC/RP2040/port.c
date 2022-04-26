@@ -249,7 +249,7 @@ extern void interrupts();
 extern void noInterrupts();
 // TODO - this is required or we get odd crashes on startup.  Need to see what's going on under the hood
 #pragma GCC push_options
-#pragma GCC optimize("O2")
+#pragma GCC optimize("Og")
 static void __no_inline_not_in_flash_func(prvFIFOInterruptHandler)()
 {
     bool ts = false;
