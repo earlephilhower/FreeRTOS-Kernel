@@ -5002,7 +5002,7 @@ static void prvResetNextTaskUnblockTime( void )
     {
         TaskHandle_t xReturn = NULL;
 
-        if( taskVALID_CORE_ID( xCoreID ) != pdFALSE )
+        if( taskVALID_CORE_ID( (BaseType_t)xCoreID ) != pdFALSE )
         {
             xReturn = pxCurrentTCBs[ xCoreID ];
         }
