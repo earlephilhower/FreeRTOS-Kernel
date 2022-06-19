@@ -2860,7 +2860,7 @@ void vTaskStartScheduler( void )
                  * structure specific to the task that will run first.
                  * See the third party link http://www.nadler.com/embedded/newlibAndFreeRTOS.html
                  * for additional information. */
-                _impure_ptr = &( pxCurrentTCB->xNewLib_reent );
+                portSET_IMPURE_PTR(&( pxCurrentTCB->xNewLib_reent ));
             }
         #endif /* configUSE_NEWLIB_REENTRANT */
 
@@ -3951,7 +3951,7 @@ void vTaskSwitchContext( BaseType_t xCoreID )
                      * structure specific to this task.
                      * See the third party link http://www.nadler.com/embedded/newlibAndFreeRTOS.html
                      * for additional information. */
-                    _impure_ptr = &( pxCurrentTCB->xNewLib_reent );
+                    portSET_IMPURE_PTR(&( pxCurrentTCB->xNewLib_reent ));
                 }
             #endif /* configUSE_NEWLIB_REENTRANT */
         }
