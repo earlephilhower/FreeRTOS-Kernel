@@ -70,6 +70,10 @@
 /* Required if struct _reent is used. */
 #if ( configUSE_NEWLIB_REENTRANT == 1 )
     #include <reent.h>
+    /* By default use non-multicore safe impure_ptr manipulation */
+    #ifndef portSET_IMPURE_POINTER
+        #define portSET_IMPURE_POINTER(x) _impure_ptr = (x)
+    #endif
 #endif
 
 /*
