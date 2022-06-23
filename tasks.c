@@ -703,11 +703,13 @@ static void prvYieldCore( BaseType_t xCoreID )
         {
             xYieldPendings[ xCoreID ] = pdTRUE;
         }
-        else
-        {
-            portYIELD_CORE( xCoreID );
-            pxCurrentTCBs[ xCoreID ]->xTaskRunState = taskTASK_YIELDING;
-        }
+        #if ( configNUM_CORES > 1 )
+            else
+            {
+                portYIELD_CORE( xCoreID );
+                pxCurrentTCBs[ xCoreID ]->xTaskRunState = taskTASK_YIELDING;
+            }
+        #endif
     }
 }
 
@@ -2854,7 +2856,7 @@ void vTaskStartScheduler( void )
          * starts to run. */
         portDISABLE_INTERRUPTS();
 
-        #if ( configUSE_NEWLIB_REENTRANT == 1 )
+        #if ( ( configUSE_NEWLIB_REENTRANT == 1 ) && ( configNEWLIB_REENTRANT_IS_DYNAMIC == 0 ) )
             {
                 /* Switch Newlib's _impure_ptr variable to point to the _reent
                  * structure specific to the task that will run first.
@@ -2862,7 +2864,7 @@ void vTaskStartScheduler( void )
                  * for additional information. */
                 portSET_IMPURE_PTR(&( pxCurrentTCB->xNewLib_reent ));
             }
-        #endif /* configUSE_NEWLIB_REENTRANT */
+        #endif /* ( configUSE_NEWLIB_REENTRANT == 1 ) && ( configNEWLIB_REENTRANT_IS_DYNAMIC == 0 ) */
 
         xNextTaskUnblockTime = portMAX_DELAY;
         xSchedulerRunning = pdTRUE;
@@ -3945,7 +3947,7 @@ void vTaskSwitchContext( BaseType_t xCoreID )
                 }
             #endif
 
-            #if ( configUSE_NEWLIB_REENTRANT == 1 )
+            #if ( ( configUSE_NEWLIB_REENTRANT == 1 ) && ( configNEWLIB_REENTRANT_IS_DYNAMIC == 0 ) )
                 {
                     /* Switch Newlib's _impure_ptr variable to point to the _reent
                      * structure specific to this task.
@@ -3953,7 +3955,7 @@ void vTaskSwitchContext( BaseType_t xCoreID )
                      * for additional information. */
                     portSET_IMPURE_PTR(&( pxCurrentTCB->xNewLib_reent ));
                 }
-            #endif /* configUSE_NEWLIB_REENTRANT */
+            #endif /* ( configUSE_NEWLIB_REENTRANT == 1 ) && ( configNEWLIB_REENTRANT_IS_DYNAMIC == 0 ) */
         }
     }
     portRELEASE_ISR_LOCK();
