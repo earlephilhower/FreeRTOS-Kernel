@@ -505,11 +505,16 @@ void xPortPendSVHandler( void )
     );
 }
 /*-----------------------------------------------------------*/
-
-void xPortSysTickHandler( void )
+extern int __holdUpPendSV;
+void __no_inline_not_in_flash_func(xPortSysTickHandler)( void )
 {
     uint32_t ulPreviousMask;
 
+    if (__holdUpPendSV)
+    {
+        // Don't try and swap tasks pre-emptively, something important is happening elsewhere
+        return;
+    }
     ulPreviousMask = portSET_INTERRUPT_MASK_FROM_ISR();
     {
         /* Increment the RTOS tick. */
