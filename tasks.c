@@ -396,8 +396,8 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended = ( UBaseType_t
 
 /* Do not move these variables to function scope as doing so prevents the
  * code working with debuggers that need to remove the static qualifier. */
-    PRIVILEGED_DATA static uint32_t ulTaskSwitchedInTime = 0UL;    /*< Holds the value of a timer/counter the last time a task was switched in. */
-    PRIVILEGED_DATA static volatile uint32_t ulTotalRunTime = 0UL; /*< Holds the total amount of execution time as defined by the run time counter clock. */
+    PRIVILEGED_DATA static uint32_t ulTaskSwitchedInTime[ configNUM_CORES ] = { 0UL };    /*< Holds the value of a timer/counter the last time a task was switched in. */
+    PRIVILEGED_DATA static volatile uint32_t ulTotalRunTime[ configNUM_CORES ] = { 0UL }; /*< Holds the total amount of execution time as defined by the run time counter clock. */
 
 #endif
 
@@ -438,7 +438,7 @@ static void prvYieldForTask( TCB_t * pxTCB,
 /*
  * Selects the highest priority available task
  */
-static BaseType_t prvSelectHighestPriorityTask( const BaseType_t xCoreID );
+static void prvSelectHighestPriorityTask( const BaseType_t xCoreID );
 
 /**
  * Utility task that simply returns pdTRUE if the task referenced by xTask is
@@ -819,7 +819,7 @@ static void prvYieldForTask( TCB_t * pxTCB,
 
 #if ( configUSE_PORT_OPTIMISED_TASK_SELECTION == 0 )
 
-    static BaseType_t prvSelectHighestPriorityTask( const BaseType_t xCoreID )
+    static void prvSelectHighestPriorityTask( const BaseType_t xCoreID )
     {
         UBaseType_t uxCurrentPriority = uxTopReadyPriority;
         BaseType_t xTaskScheduled = pdFALSE;
@@ -831,6 +831,9 @@ static void prvYieldForTask( TCB_t * pxTCB,
         #if ( ( configRUN_MULTIPLE_PRIORITIES == 0 ) && ( configNUM_CORES > 1 ) )
             BaseType_t xPriorityDropped = pdFALSE;
         #endif
+
+        /* This function should be called when scheduler is running. */
+        configASSERT( xSchedulerRunning == pdTRUE );
 
         while( xTaskScheduled == pdFALSE )
         {
@@ -947,14 +950,9 @@ static void prvYieldForTask( TCB_t * pxTCB,
                 }
             }
 
-            /* This function can get called by vTaskSuspend() before the scheduler is started.
-             * In that case, since the idle tasks have not yet been created it is possible that we
-             * won't find a new task to schedule. Return pdFALSE in this case. */
-            if( ( xSchedulerRunning == pdFALSE ) && ( uxCurrentPriority == tskIDLE_PRIORITY ) && ( xTaskScheduled == pdFALSE ) )
-            {
-                return pdFALSE;
-            }
-
+            /* Theare are configNUMBER_OF_CORES Idle tasks created when scheduler started.
+             * The scheduler should be able to select a task to run when uxCurrentPriority
+             * is tskIDLE_PRIORITY. */
             configASSERT( ( uxCurrentPriority > tskIDLE_PRIORITY ) || ( xTaskScheduled == pdTRUE ) );
             uxCurrentPriority--;
         }
@@ -1034,8 +1032,6 @@ static void prvYieldForTask( TCB_t * pxTCB,
                 }
             #endif /* if ( configUSE_CORE_AFFINITY == 1 ) */
         #endif /* if ( configNUM_CORES > 1 ) */
-
-        return pdTRUE;
     }
 
 #else /* configUSE_PORT_OPTIMISED_TASK_SELECTION */
@@ -2480,45 +2476,23 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                     {
                         prvYieldCore( xTaskRunningOnCore );
                     }
-
-                    taskEXIT_CRITICAL();
                 }
                 else
                 {
-                    taskEXIT_CRITICAL();
-
-                    configASSERT( pxTCB == pxCurrentTCBs[ xTaskRunningOnCore ] );
-
-                    /* The scheduler is not running, but the task that was pointed
-                     * to by pxCurrentTCB has just been suspended and pxCurrentTCB
-                     * must be adjusted to point to a different task. */
-                    if( listCURRENT_LIST_LENGTH( &xSuspendedTaskList ) == uxCurrentNumberOfTasks ) /*lint !e931 Right has no side effect, just volatile. */
-                    {
-                        /* No other tasks are ready, so set the core's TCB back to
-                         * NULL so when the next task is created the core's TCB will
-                         * be able to be set to point to it no matter what its relative
-                         * priority is. */
-                        pxTCB->xTaskRunState = taskTASK_NOT_RUNNING;
-                        pxCurrentTCBs[ xTaskRunningOnCore ] = NULL;
-                    }
-                    else
-                    {
-                        /* Attempt to switch in a new task. This could fail since the idle tasks
-                         * haven't been created yet. If it does then set the core's TCB back to
-                         * NULL. */
-                        if( prvSelectHighestPriorityTask( xTaskRunningOnCore ) == pdFALSE )
-                        {
-                            pxTCB->xTaskRunState = taskTASK_NOT_RUNNING;
-                            pxCurrentTCBs[ xTaskRunningOnCore ] = NULL;
-                        }
-                    }
+                    /* This code path is not possible because only Idle tasks are
+                     * assigned a core before the scheduler is started ( i.e.
+                     * taskTASK_IS_RUNNING is only true for idle tasks before
+                     * the scheduler is started ) and idle tasks cannot be
+                     * suspended. */
+                    mtCOVERAGE_TEST_MARKER();
                 }
             }
             else
             {
-                taskEXIT_CRITICAL();
+                mtCOVERAGE_TEST_MARKER();
             }
-        } /* taskEXIT_CRITICAL() - already exited in one of three cases above */
+        }
+        taskEXIT_CRITICAL();
     }
 
 #endif /* INCLUDE_vTaskSuspend */
@@ -2861,8 +2835,11 @@ void vTaskStartScheduler( void )
                 /* Switch Newlib's _impure_ptr variable to point to the _reent
                  * structure specific to the task that will run first.
                  * See the third party link http://www.nadler.com/embedded/newlibAndFreeRTOS.html
-                 * for additional information. */
-                portSET_IMPURE_PTR(&( pxCurrentTCB->xNewLib_reent ));
+                 * for additional information.
+                 *
+                 * Note: Updating the _impure_ptr is not required when Newlib is compiled with
+                 * __DYNAMIC_REENT__ enabled. The port should provide __getreent() instead. */
+                _impure_ptr = &( pxCurrentTCB->xNewLib_reent );
             }
         #endif /* ( configUSE_NEWLIB_REENTRANT == 1 ) && ( configNEWLIB_REENTRANT_IS_DYNAMIC == 0 ) */
 
@@ -3900,9 +3877,9 @@ void vTaskSwitchContext( BaseType_t xCoreID )
             #if ( configGENERATE_RUN_TIME_STATS == 1 )
                 {
                     #ifdef portALT_GET_RUN_TIME_COUNTER_VALUE
-                        portALT_GET_RUN_TIME_COUNTER_VALUE( ulTotalRunTime );
+                        portALT_GET_RUN_TIME_COUNTER_VALUE( ulTotalRunTime[ xCoreID ] );
                     #else
-                        ulTotalRunTime = portGET_RUN_TIME_COUNTER_VALUE();
+                        ulTotalRunTime[ xCoreID ] = portGET_RUN_TIME_COUNTER_VALUE();
                     #endif
 
                     /* Add the amount of time the task has been running to the
@@ -3912,16 +3889,16 @@ void vTaskSwitchContext( BaseType_t xCoreID )
                      * overflows.  The guard against negative values is to protect
                      * against suspect run time stat counter implementations - which
                      * are provided by the application, not the kernel. */
-                    if( ulTotalRunTime > ulTaskSwitchedInTime )
+                    if( ulTotalRunTime[ xCoreID ] > ulTaskSwitchedInTime[ xCoreID ] )
                     {
-                        pxCurrentTCB->ulRunTimeCounter += ( ulTotalRunTime - ulTaskSwitchedInTime );
+                        pxCurrentTCB->ulRunTimeCounter += ( ulTotalRunTime[ xCoreID ] - ulTaskSwitchedInTime[ xCoreID ] );
                     }
                     else
                     {
                         mtCOVERAGE_TEST_MARKER();
                     }
 
-                    ulTaskSwitchedInTime = ulTotalRunTime;
+                    ulTaskSwitchedInTime[ xCoreID ] = ulTotalRunTime[ xCoreID ];
                 }
             #endif /* configGENERATE_RUN_TIME_STATS */
 
@@ -3937,7 +3914,7 @@ void vTaskSwitchContext( BaseType_t xCoreID )
 
             /* Select a new task to run using either the generic C or port
              * optimised asm code. */
-            ( void ) prvSelectHighestPriorityTask( xCoreID );
+            prvSelectHighestPriorityTask( xCoreID );
             traceTASK_SWITCHED_IN();
 
             /* After the new task is switched in, update the global errno. */
@@ -3952,8 +3929,11 @@ void vTaskSwitchContext( BaseType_t xCoreID )
                     /* Switch Newlib's _impure_ptr variable to point to the _reent
                      * structure specific to this task.
                      * See the third party link http://www.nadler.com/embedded/newlibAndFreeRTOS.html
-                     * for additional information. */
-                    portSET_IMPURE_PTR(&( pxCurrentTCB->xNewLib_reent ));
+                     * for additional information.
+                     *
+                     * Note: Updating the _impure_ptr is not required when Newlib is compiled with
+                     * __DYNAMIC_REENT__ enabled. The the port should provide __getreent() instead. */
+                    _impure_ptr = &( pxCurrentTCB->xNewLib_reent );
                 }
             #endif /* ( configUSE_NEWLIB_REENTRANT == 1 ) && ( configNEWLIB_REENTRANT_IS_DYNAMIC == 0 ) */
         }
@@ -4702,6 +4682,12 @@ static void prvCheckTasksWaitingTermination( void )
         pxTaskStatus->uxCurrentPriority = pxTCB->uxPriority;
         pxTaskStatus->pxStackBase = pxTCB->pxStack;
         pxTaskStatus->xTaskNumber = pxTCB->uxTCBNumber;
+
+        #if ( ( configUSE_CORE_AFFINITY == 1 ) && ( configNUM_CORES > 1 ) )
+            {
+                pxTaskStatus->uxCoreAffinityMask = pxTCB->uxCoreAffinityMask;
+            }
+        #endif
 
         #if ( configUSE_MUTEXES == 1 )
             {
