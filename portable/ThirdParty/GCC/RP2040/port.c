@@ -242,26 +242,13 @@ void vPortStartFirstTask( void )
 }
 /*-----------------------------------------------------------*/
 
-extern volatile bool __otherCoreIdled;
-extern void interrupts();
-extern void noInterrupts();
 static void __no_inline_not_in_flash_func(prvFIFOInterruptHandler)()
 {
-    bool ts = false;
-    while (multicore_fifo_rvalid()) {
-        if (0xC0DED02E == multicore_fifo_pop_blocking()) {
-            noInterrupts();
-            __otherCoreIdled = true;
-            while (__otherCoreIdled) { /* noop */ }
-            interrupts();
-        } else {
-            ts = true; /* Need a task switch */
-        }
-    }
+    /* We must remove the contents (which we don't care about)
+     * to clear the IRQ */
+    multicore_fifo_drain();
     /* And explicitly clear any other IRQ flags */
     multicore_fifo_clear_irq();
-    /* If we only had a freeze request, don't switch */
-    if (!ts) return; 
     #if ( portRUNNING_ON_BOTH_CORES == 1 )
         portYIELD_FROM_ISR(pdTRUE);
     #elif ( configSUPPORT_PICO_SYNC_INTEROP == 1 )
@@ -505,16 +492,10 @@ void xPortPendSVHandler( void )
     );
 }
 /*-----------------------------------------------------------*/
-extern int __holdUpPendSV;
-void __no_inline_not_in_flash_func(xPortSysTickHandler)( void )
+void xPortSysTickHandler( void )
 {
     uint32_t ulPreviousMask;
 
-    if (__holdUpPendSV)
-    {
-        // Don't try and swap tasks pre-emptively, something important is happening elsewhere
-        return;
-    }
     ulPreviousMask = portSET_INTERRUPT_MASK_FROM_ISR();
     {
         /* Increment the RTOS tick. */
