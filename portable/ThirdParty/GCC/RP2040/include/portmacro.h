@@ -281,6 +281,7 @@ static inline void vPortRecursiveLock( uint32_t ulLockNum,
 #define portNOP()               __asm volatile ( "nop" )
 
 #define portMEMORY_BARRIER()    __asm volatile ( "" ::: "memory" )
+    extern volatile bool __otherCoreIdled;
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

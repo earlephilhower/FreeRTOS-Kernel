@@ -282,7 +282,7 @@ void vPortStartFirstTask( void )
 /*-----------------------------------------------------------*/
 
 #if ( LIB_PICO_MULTICORE == 1 ) && ( configSUPPORT_PICO_SYNC_INTEROP == 1 )
-    static void prvFIFOInterruptHandler()
+    static void __no_inline_not_in_flash_func(prvFIFOInterruptHandler)()
     {
         /* We must remove the contents (which we don't care about)
          * to clear the IRQ */

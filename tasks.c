@@ -3842,6 +3842,8 @@ void vTaskSuspendAll( void )
         /* This must only be called from within a task. */
         portASSERT_IF_IN_ISR();
 
+        portDISABLE_INTERRUPTS(); // Avoid WiFi/Ethernet IRQ causing malloc/etc. until resumed
+
         if( xSchedulerRunning != pdFALSE )
         {
             /* Writes to uxSchedulerSuspended must be protected by both the task AND ISR locks.
@@ -4102,6 +4104,8 @@ BaseType_t xTaskResumeAll( void )
     }
 
     traceRETURN_xTaskResumeAll( xAlreadyYielded );
+
+    portENABLE_INTERRUPTS(); // This should match the disable call in vTaskSuspendAll
 
     return xAlreadyYielded;
 }
